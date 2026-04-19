@@ -183,7 +183,7 @@ package struct FromConfigPipeline: ~Copyable {
         let beforeDot = DependencyGraphDOTExporter.export(graph)
         let beforeDotUrl = tmpFolder.appending(path: "dependencies-\(arch.userFriendlyName)-before.dot",
                                                 directoryHint: .notDirectory)
-        try await fileSystemService.write(data: Data(beforeDot.utf8), to: beforeDotUrl)
+        try fileSystemService.write(data: Data(beforeDot.utf8), to: beforeDotUrl)
         logger.info("DOT graph (before): \(beforeDotUrl.fileSystemPath)")
 
         let rootNames = Set(soFiles.map { $0.lastPathComponent })
@@ -278,7 +278,7 @@ package struct FromConfigPipeline: ~Copyable {
         let afterDot = DependencyGraphDOTExporter.export(analysis.graph, strippedEdges: strippedEdges)
         let afterDotUrl = tmpFolder.appending(path: "dependencies-\(arch.userFriendlyName)-after.dot",
                                                directoryHint: .notDirectory)
-        try await fileSystemService.write(data: Data(afterDot.utf8), to: afterDotUrl)
+        try fileSystemService.write(data: Data(afterDot.utf8), to: afterDotUrl)
         logger.info("DOT graph (after): \(afterDotUrl.fileSystemPath)")
 
         return copiedFiles
@@ -299,7 +299,7 @@ package struct FromConfigPipeline: ~Copyable {
         let manifestData = try manifest.jsonData()
         let manifestUrl = manifestDir.appending(path: "swift-libs-manifest.json",
                                                 directoryHint: .notDirectory)
-        try await fileSystemService.write(data: manifestData, to: manifestUrl)
+        try fileSystemService.write(data: manifestData, to: manifestUrl)
         logger.info("Manifest: \(manifestUrl.fileSystemPath) (\(manifest.libraries.count) libraries)")
     }
 
@@ -383,7 +383,7 @@ package struct FromConfigPipeline: ~Copyable {
             ```
             """
         let readmeUrl = symbolsFolder.appending(path: "README.md", directoryHint: .notDirectory)
-        try await fileSystemService.write(data: Data(readmeContent.utf8), to: readmeUrl)
+        try fileSystemService.write(data: Data(readmeContent.utf8), to: readmeUrl)
         logger.info("Symbols archived to \(symbolsFolder.fileSystemPath)")
 
         // Firebase upload (optional)
