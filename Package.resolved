@@ -1,0 +1,33 @@
+{
+  "originHash" : "a6b25d30c848b31b08ddd0d76292674eb154814881eab8f58f7959c3155307ff",
+  "pins" : [
+    {
+      "identity" : "drain-work-pool",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/NikolayJuly/drain-work-pool.git",
+      "state" : {
+        "revision" : "a9d521288324a15c5d33ab1d3cd9d73e69c89e84",
+        "version" : "4.1.1"
+      }
+    },
+    {
+      "identity" : "swift-argument-parser",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-argument-parser",
+      "state" : {
+        "revision" : "309a47b2b1d9b5e991f36961c983ecec72275be3",
+        "version" : "1.6.1"
+      }
+    },
+    {
+      "identity" : "swift-log",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-log.git",
+      "state" : {
+        "revision" : "bbd81b6725ae874c69e9b8c8804d462356b55523",
+        "version" : "1.10.1"
+      }
+    }
+  ],
+  "version" : 3
+}
