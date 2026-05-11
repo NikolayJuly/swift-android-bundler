@@ -51,15 +51,28 @@ package struct FromConfigPipeline: ~Copyable {
         let sdkConfig = try SwiftSDKConfig.parse(from: environment.swiftSdkPath,
                                                    fileSystemService: fileSystemService)
 
+        let symbolsFolder = try prepareSymbolsFolder()
+
         for arch in environment.architectures {
-            try await processArchitecture(arch, matched: matched, sdkConfig: sdkConfig, tmpFolder: tmpFolder)
+            try await processArchitecture(arch,
+                                          matched: matched,
+                                          sdkConfig: sdkConfig,
+                                          tmpFolder: tmpFolder,
+                                          symbolsFolder: symbolsFolder)
         }
 
-        try await archiveSymbols()
+        try await finalizeSymbolsArchive(symbolsFolder: symbolsFolder)
         logger.info("Done.")
     }
 
     // MARK: - Private
+
+    private let symbolsTimestamp: String = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd_HH-mm"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        return formatter.string(from: Date())
+    }()
 
     private let request: BuildRequest
     private let environment: BuildEnvironment
@@ -92,7 +105,8 @@ package struct FromConfigPipeline: ~Copyable {
     private borrowing func processArchitecture(_ arch: AndroidArch,
                                                matched: [String: ProductMatcher.MatchedProduct],
                                                sdkConfig: SwiftSDKConfig,
-                                               tmpFolder: URL) async throws {
+                                               tmpFolder: URL,
+                                               symbolsFolder: URL) async throws {
         let swiftSdk = try SwiftForAndroidSDK(sdkFolder: environment.swiftSdkPath,
                                                config: sdkConfig,
                                                arch: arch,
@@ -110,6 +124,7 @@ package struct FromConfigPipeline: ~Copyable {
         let abiFolder = output.destination.appending(path: arch.ndkABI, directoryHint: .isDirectory)
         let copiedFiles = try await copyAndPatch(analysis, arch: arch, abiFolder: abiFolder, tmpFolder: tmpFolder)
         try await generateManifest(analysis, abiFolder: abiFolder)
+        try archiveUnstrippedSymbols(copiedFiles, arch: arch, symbolsFolder: symbolsFolder)
         try await stripBinaries(copiedFiles)
         logSizes(copiedFiles, arch: arch, abiFolder: abiFolder)
     }
@@ -327,13 +342,7 @@ package struct FromConfigPipeline: ~Copyable {
         logger.info("\(arch.userFriendlyName): \(copiedFiles.count) files, \(totalMB) MB in \(abiFolder.fileSystemPath)")
     }
 
-    private borrowing func archiveSymbols() async throws {
-        let symbolsTimestamp: String = {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "yyyy-MM-dd_HH-mm"
-            formatter.locale = Locale(identifier: "en_US_POSIX")
-            return formatter.string(from: Date())
-        }()
+    private borrowing func prepareSymbolsFolder() throws -> URL {
         let productLabel = request.products.joined(separator: "+")
         let symbolsFolderName = "\(symbolsTimestamp)_\(productLabel)_\(environment.configuration)"
         let symbolsBaseDir: URL
@@ -349,18 +358,25 @@ package struct FromConfigPipeline: ~Copyable {
         }
         let symbolsFolder = symbolsBaseDir.appending(path: symbolsFolderName, directoryHint: .isDirectory)
         try fileSystemService.createAllSubfolders(upTo: symbolsFolder, in: symbolsRootDir)
+        return symbolsFolder
+    }
 
-        for arch in environment.architectures {
-            let abiFolder = output.destination.appending(path: arch.ndkABI, directoryHint: .isDirectory)
-            let archSymbolsFolder = symbolsFolder.appending(path: arch.ndkABI, directoryHint: .isDirectory)
-            try fileSystemService.createFolderIfNotExists(at: archSymbolsFolder)
-            let (soFiles, _) = try fileSystemService.categorizedFolderContent(at: abiFolder)
-            for soFile in soFiles where soFile.pathExtension == "so" {
-                let dest = archSymbolsFolder.appending(path: soFile.lastPathComponent, directoryHint: .notDirectory)
-                try? fileSystemService.copyItem(at: soFile, to: dest)
-            }
+    private borrowing func archiveUnstrippedSymbols(_ copiedFiles: [(name: String, destination: URL)],
+                                                    arch: AndroidArch,
+                                                    symbolsFolder: URL) throws {
+        // Snapshot unstripped binaries before any strip phase mutates them.
+        // Why: symbols archive must hold the originals so they're useful for Firebase Crashlytics or post-mortem debugging.
+        let archSymbolsFolder = symbolsFolder.appending(path: arch.ndkABI, directoryHint: .isDirectory)
+        try fileSystemService.createFolderIfNotExists(at: archSymbolsFolder)
+        for (name, source) in copiedFiles {
+            let dest = archSymbolsFolder.appending(path: name, directoryHint: .notDirectory)
+            try fileSystemService.copyItem(at: source, to: dest)
         }
+        logger.info("Archived \(copiedFiles.count) unstripped .so file(s) for \(arch.userFriendlyName) to \(archSymbolsFolder.fileSystemPath)")
+    }
 
+    private borrowing func finalizeSymbolsArchive(symbolsFolder: URL) async throws {
+        let productLabel = request.products.joined(separator: "+")
         let uploadCommands = environment.architectures.map { arch in
             let archFolder = symbolsFolder.appending(path: arch.ndkABI, directoryHint: .isDirectory)
             return """
@@ -399,6 +415,7 @@ package struct FromConfigPipeline: ~Copyable {
             }
         }
     }
+
 }
 
 // MARK: - ArchAnalysis

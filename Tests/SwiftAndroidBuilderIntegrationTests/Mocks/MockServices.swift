@@ -101,9 +101,21 @@ final class MockDependencyGrapher: DependencyGraphing, @unchecked Sendable {
 // MARK: - MockPostProcessor
 
 final class MockPostProcessor: PostProcessing, @unchecked Sendable {
+    /// Marker prepended to a file's bytes when the mock "strips" it.
+    /// Tests assert that no file with this prefix ends up in places where unstripped binaries are required (e.g. symbols archive).
+    static let strippedPrefix = "STRIPPED:"
+
     var stripCalls: [(url: URL, mode: StripMode)] = []
+    /// When set, the mock physically rewrites the file at `url` by prepending `strippedPrefix` to its bytes.
+    /// This emulates real strip: the on-disk file is mutated. Leave nil to keep the call-recording-only behavior.
+    var fileSystem: InMemoryFileSystemService?
 
     func stripBinary(at url: URL, mode: StripMode, stripToolPath: String) async throws {
         stripCalls.append((url: url, mode: mode))
+        guard let fileSystem else { return }
+        let original = try fileSystem.fileContent(at: url)
+        var marked = Data(Self.strippedPrefix.utf8)
+        marked.append(original)
+        try fileSystem.write(data: marked, to: url)
     }
 }
