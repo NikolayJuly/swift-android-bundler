@@ -38,6 +38,7 @@ final class MockSwiftBuilder: SwiftBuilding, @unchecked Sendable {
         let packagePath: URL
         let configuration: BuildConfiguration
         let triplet: String
+        let extraArgs: [String]
     }
 
     var buildCalls: [BuildCall] = []
@@ -49,7 +50,8 @@ final class MockSwiftBuilder: SwiftBuilding, @unchecked Sendable {
         buildCalls.append(BuildCall(product: name,
                                      packagePath: packagePath,
                                      configuration: configuration,
-                                     triplet: triplet))
+                                     triplet: triplet,
+                                     extraArgs: extraArgs))
         // Create fake .so file in build output
         let soName = "lib\(name).so"
         let soPath = buildOutputPath.appending(path: soName, directoryHint: .notDirectory)

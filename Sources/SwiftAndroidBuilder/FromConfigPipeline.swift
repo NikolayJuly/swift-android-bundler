@@ -138,6 +138,15 @@ package struct FromConfigPipeline: ~Copyable {
             productsByPackage[matchedProduct.packagePath, default: []].append(productName)
         }
 
+        // Release builds carry no full DWARF by default — inject it so the symbols archive
+        // is useful for Firebase Crashlytics symbolication. User-supplied extraArgs come last
+        // and can override (e.g. -Xswiftc -gnone).
+        var effectiveExtraArgs: [String] = []
+        if environment.configuration == .release {
+            effectiveExtraArgs += ["-Xswiftc", "-g"]
+        }
+        effectiveExtraArgs += output.extraArgs
+
         var allSoFiles: [URL] = []
         var allBuildFolders: [URL] = []
 
@@ -147,7 +156,7 @@ package struct FromConfigPipeline: ~Copyable {
                                                packagePath: packagePath,
                                                configuration: environment.configuration,
                                                triplet: triplet,
-                                               extraArgs: output.extraArgs,
+                                               extraArgs: effectiveExtraArgs,
                                                swiftVersion: resolvedSwiftVersion)
             }
 

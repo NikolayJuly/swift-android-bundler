@@ -9,6 +9,20 @@ import Testing
 @testable import DependencyGraph
 @testable import SwiftAndroidBuilder
 
+private extension Array where Element: Equatable {
+    /// Returns true if `subsequence` appears as a contiguous run inside the array.
+    func containsContiguous(_ subsequence: [Element]) -> Bool {
+        guard subsequence.isEmpty == false, count >= subsequence.count else {
+            return subsequence.isEmpty
+        }
+        let lastStart = count - subsequence.count
+        for start in 0...lastStart where Array(self[start..<start + subsequence.count]) == subsequence {
+            return true
+        }
+        return false
+    }
+}
+
 /// Integration test for the full from-config pipeline.
 ///
 /// Scenario: "PetShop" — two Swift products from one source package.
@@ -396,6 +410,109 @@ struct PipelineIntegrationTest {
                         "\(name) in jniLibs must be stripped when stripMode is .all")
             }
         }
+    }
+
+    /// Scenario: build with `configuration: .release`. The pipeline must inject `-Xswiftc -g`
+    /// into every swift build invocation so that .so files carry full DWARF for Crashlytics symbolication.
+    @Test("Release configuration injects -Xswiftc -g into swift build")
+    func releaseBuildInjectsFullDebugInfoFlag() async throws {
+        let calls = try await runMinimalPipeline(configuration: .release, userExtraArgs: ["--explicit-target-dependency-import-check", "error"])
+
+        #expect(calls.isEmpty == false, "Pipeline must invoke buildProduct at least once")
+        for call in calls {
+            #expect(call.extraArgs.containsContiguous(["-Xswiftc", "-g"]),
+                    "Release build must inject -Xswiftc -g, got \(call.extraArgs)")
+            // User-supplied args must still be present and come after the injection so they can override.
+            #expect(call.extraArgs.contains("--explicit-target-dependency-import-check"),
+                    "User extraArgs must still be forwarded, got \(call.extraArgs)")
+            let injectionIdx = call.extraArgs.firstIndex(of: "-Xswiftc") ?? Int.max
+            let userIdx = call.extraArgs.firstIndex(of: "--explicit-target-dependency-import-check") ?? -1
+            #expect(injectionIdx < userIdx,
+                    "Injected -Xswiftc -g must precede user extraArgs so the user can override")
+        }
+    }
+
+    /// Scenario: build with `configuration: .debug`. Debug builds already emit full debug info by default,
+    /// so the pipeline must NOT inject `-Xswiftc -g` (avoid duplication and surprise).
+    @Test("Debug configuration does not inject -Xswiftc -g")
+    func debugBuildDoesNotInjectFullDebugInfoFlag() async throws {
+        let calls = try await runMinimalPipeline(configuration: .debug, userExtraArgs: [])
+
+        #expect(calls.isEmpty == false, "Pipeline must invoke buildProduct at least once")
+        for call in calls {
+            #expect(call.extraArgs.containsContiguous(["-Xswiftc", "-g"]) == false,
+                    "Debug build must not inject -Xswiftc -g, got \(call.extraArgs)")
+        }
+    }
+
+    /// Minimal pipeline harness — drives the build for a single product so the test can inspect
+    /// what arguments reached `MockSwiftBuilder.buildProduct`. Returns recorded build calls.
+    private func runMinimalPipeline(configuration: BuildConfiguration,
+                                    userExtraArgs: [String]) async throws -> [MockSwiftBuilder.BuildCall] {
+        let fs = InMemoryFileSystemService(rootUrl: URL(filePath: "/"),
+                                          appRootContainer: URL(filePath: "/app"))
+        let dumper = MockPackageDumper()
+        let builder = MockSwiftBuilder()
+        let grapher = MockDependencyGrapher()
+        let postProcessor = MockPostProcessor()
+
+        dumper.productsByPackage["PetShopSwift"] = ["PetAnalytics", "PetPayments"]
+
+        let buildFolder = URL(filePath: "/build/aarch64-unknown-linux-android28/\(configuration.rawValue)")
+        builder.buildOutputPath = buildFolder
+        builder.fileSystem = fs
+
+        let graph = DependencyGraph.petShopPhantomFoundation(buildFolder: buildFolder)
+        grapher.graphToReturn = graph
+
+        try fs.setupPipelineInfrastructure(buildFolder: buildFolder)
+        try fs.setupSwiftAndroidSDK()
+
+        for node in graph.nodes.values {
+            try fs.write(data: Data("elf-\(node.name)".utf8), to: node.url)
+        }
+
+        let request = BuildRequest(products: ["PetAnalytics", "PetPayments"],
+                                    swiftPackages: [URL(filePath: "/ws/PetShopSwift")])
+
+        let environment = BuildEnvironment(architectures: [.arm64],
+                                            apiLevel: 28,
+                                            swiftSdkPath: URL(filePath: "/sdk/swift-android"),
+                                            swiftVersion: "6.3.0",
+                                            androidSdkPath: URL(filePath: "/android-sdk"),
+                                            configuration: configuration)
+
+        let destination = URL(filePath: "/output/jniLibs")
+        try fs.createEmptyFolder(at: URL(filePath: "/output"))
+        try fs.createEmptyFolder(at: destination)
+
+        let output = BuildOutput(destination: destination,
+                                  manifestDestination: nil,
+                                  excludeMode: .none,
+                                  stripMode: .none,
+                                  firebaseAppId: nil,
+                                  symbolsDestination: nil,
+                                  extraArgs: userExtraArgs)
+
+        let ndk = AndroidNDK(ndkFolder: URL(filePath: "/android-sdk/ndk/27.0.0"))
+
+        var logger = Logger(label: "test")
+        logger.logLevel = .critical
+
+        let pipeline = FromConfigPipeline(request: request,
+                                         environment: environment,
+                                         output: output,
+                                         resolvedSwiftVersion: "6.3.0",
+                                         ndk: ndk,
+                                         packageDumper: dumper,
+                                         builder: builder,
+                                         graphing: grapher,
+                                         postProcessor: postProcessor,
+                                         fileSystemService: fs,
+                                         logger: logger)
+        try await pipeline.run()
+
+        return builder.buildCalls
     }
 
     /// Scenario: product has real symbol dependencies on libFoundation.so and lib_FoundationICU.so,
