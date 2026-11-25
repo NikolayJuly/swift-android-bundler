@@ -35,7 +35,7 @@ This will:
 4. Strip all debug symbols
 5. Output the minimal `.so` set per architecture into `arm64-v8a/`, `x86_64/`, `armeabi-v7a/` subfolders
 
-Swift toolchain and Android SDK are auto-discovered from installed versions. Pin a specific version with `--swift-version 6.3`.
+Swift toolchain and Android SDK are auto-discovered from installed versions. Pin a specific version, patch included, with `--swift-version 6.4.3`.
 
 ## Documentation
 

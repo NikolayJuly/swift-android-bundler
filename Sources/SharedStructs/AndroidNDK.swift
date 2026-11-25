@@ -8,6 +8,10 @@ public struct AndroidNDK: Sendable {
         self.ndkFolder = ndkFolder
     }
 
+    public var folderUrl: URL {
+        ndkFolder
+    }
+
     public var llvmNmUrl: URL {
         ndkFolder.appending(path: "toolchains/llvm/prebuilt/\(Self.hostPlatform)/bin/llvm-nm",
                             directoryHint: .notDirectory)

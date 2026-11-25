@@ -141,13 +141,17 @@ struct BuildCommand: AsyncParsableCommand {
         let ndk = try AndroidNDK.discoverLatest(in: androidSdkUrl, fileSystemService: fileSystemService)
         try EnvironmentValidation.validateLlvmNm(ndk, logger: logger)
 
+        let builder = SwiftBuilderImpl(sdkName: discovered.sdkName,
+                                       ndk: ndk,
+                                       logger: logger)
+
         let pipeline = FromConfigPipeline(request: request,
                                          environment: environment,
                                          output: output,
                                          resolvedSwiftVersion: resolvedSwiftVersion,
                                          ndk: ndk,
                                          packageDumper: PackageDumperImpl(),
-                                         builder: SwiftBuilderImpl(logger: logger),
+                                         builder: builder,
                                          graphing: DependencyGrapherImpl(),
                                          postProcessor: PostProcessorImpl(),
                                          fileSystemService: fileSystemService,

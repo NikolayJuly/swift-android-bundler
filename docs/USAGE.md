@@ -14,6 +14,8 @@ Both commands automatically discover the Swift toolchain and Android SDK:
 
 - **Swift version**: if `--swift-version` is not provided, the latest installed toolchain is detected via `swiftly list`
 - **Android SDK**: discovered via `swift sdk list` + `swift sdk configure --show-configuration`. If `--swift-version` is provided, only SDKs matching that version are considered. The Swift SDK version must match the toolchain version exactly.
+- **Several Android SDKs installed**: from Swift 6.4.0 `build` passes `swift build --swift-sdk <sdk id> --triple <triple>`, so other installed SDKs do not clash. SwiftPM before 6.4.0 ignores `--triple` next to an SDK id, so there `build` passes the triple alone, which needs a single Android SDK installed for that triple.
+- **NDK for `swift build`**: Swift 6.4.3 looks the NDK up itself. When neither `ANDROID_NDK_HOME` nor `ANDROID_NDK_ROOT` is set, `build` sets `ANDROID_NDK_HOME` to the latest NDK under `--android-sdk-path`.
 
 ## swift-android-bundler build
 
@@ -37,7 +39,7 @@ swift-android-bundler build \
   --destination /path/to/jniLibs \
   --arch arm64 \
   --api-level 28 \
-  --swift-version 6.3 \
+  --swift-version 6.4.3 \
   --configuration release \
   --exclude all \
   --strip all \
@@ -69,7 +71,7 @@ swift-android-bundler build \
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `--swift-version` | latest installed | Swift version (e.g. `6.3`). Selects both toolchain and Android SDK. |
+| `--swift-version` | latest installed | Swift version, full with patch (e.g. `6.4.3`). Selects both toolchain and Android SDK. |
 
 **Optional — build:**
 
@@ -163,7 +165,7 @@ swift-android-bundler collect /path/to/binary.xctest \
   --destination /path/to/output \
   --arch x86_64 \
   --api-level 29 \
-  --swift-version 6.3 \
+  --swift-version 6.4.3 \
   --build-folder /path/to/build/output \
   --verbose
 ```
