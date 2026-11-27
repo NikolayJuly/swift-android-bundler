@@ -13,7 +13,9 @@ package protocol SwiftBuilding: Sendable {
                       triplet: String,
                       extraArgs: [String],
                       swiftVersion: String) async throws
+    /// - Parameter scratchPath: the `--scratch-path` the package was built with, `nil` for the default `.build`.
     func getBuildOutputPath(packagePath: URL,
+                            scratchPath: URL?,
                             configuration: BuildConfiguration,
                             triplet: String,
                             swiftVersion: String) async throws -> URL
@@ -59,6 +61,7 @@ package final class SwiftBuilderImpl: SwiftBuilding {
     }
 
     package func getBuildOutputPath(packagePath: URL,
+                                    scratchPath: URL?,
                                     configuration: BuildConfiguration,
                                     triplet: String,
                                     swiftVersion: String) async throws -> URL {
@@ -67,8 +70,11 @@ package final class SwiftBuilderImpl: SwiftBuilding {
                 "-c", configuration.rawValue]
         cmd += sdkArguments(triplet: triplet, swiftVersion: swiftVersion)
         cmd += ["--show-bin-path",
-                "--package-path", packagePath.fileSystemPath,
-                "+\(swiftVersion)"]
+                "--package-path", packagePath.fileSystemPath]
+        if let scratchPath {
+            cmd += ["--scratch-path", scratchPath.fileSystemPath]
+        }
+        cmd += ["+\(swiftVersion)"]
         let output = try await AsyncShellCommand(cmd, logger: logger).execute()
         return URL(filePath: output.trimmingCharacters(in: .whitespacesAndNewlines),
                    directoryHint: .isDirectory)

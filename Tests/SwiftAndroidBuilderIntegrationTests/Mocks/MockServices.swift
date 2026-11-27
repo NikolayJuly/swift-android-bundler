@@ -22,6 +22,10 @@ final class MockPackageDumper: PackageDumping, @unchecked Sendable {
         }
         return products
     }
+
+    func dumpTestTargets(at packagePath: URL) async throws -> [String] {
+        []
+    }
 }
 
 // MARK: - MockSwiftBuilder
@@ -63,7 +67,7 @@ final class MockSwiftBuilder: SwiftBuilding, @unchecked Sendable {
         }
     }
 
-    func getBuildOutputPath(packagePath: URL, configuration: BuildConfiguration,
+    func getBuildOutputPath(packagePath: URL, scratchPath: URL?, configuration: BuildConfiguration,
                             triplet: String, swiftVersion: String) async throws -> URL {
         // Also create any additional .so files that should be in the build folder
         for soName in soFilesToCreate {

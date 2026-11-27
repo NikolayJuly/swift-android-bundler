@@ -161,6 +161,7 @@ package struct FromConfigPipeline: ~Copyable {
             }
 
             let binariesFolder = try await builder.getBuildOutputPath(packagePath: packagePath,
+                                                                      scratchPath: nil,
                                                                       configuration: environment.configuration,
                                                                       triplet: triplet,
                                                                       swiftVersion: resolvedSwiftVersion)

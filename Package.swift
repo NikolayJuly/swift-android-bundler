@@ -20,6 +20,15 @@ let package = Package(
     targets: [
         // MARK: - Libraries
 
+        .target(name: "AndroidTestKit",
+                dependencies: [
+                    "DependencyCollector",
+                    "SharedStructs",
+                    "SwiftAndroidBuilder",
+                    .product(name: "FoundationExtension", package: "FoundationExtension"),
+                    .product(name: "Logging", package: "swift-log"),
+                    .product(name: "ShellKit", package: "FoundationExtension"),
+                ]),
         .target(name: "DependencyCollector",
                 dependencies: [
                     "SharedStructs",
@@ -70,6 +79,7 @@ let package = Package(
 
         .executableTarget(name: "SwiftAndroidBundler",
                           dependencies: [
+                              "AndroidTestKit",
                               "DependencyCollector",
                               "EnvironmentSetup",
                               "SharedStructs",
@@ -81,6 +91,16 @@ let package = Package(
 
         // MARK: - Tests
 
+        .testTarget(name: "AndroidTestKitTests",
+                     dependencies: [
+                         "AndroidTestKit",
+                         "DependencyCollector",
+                         "SharedStructs",
+                         "SwiftAndroidBuilder",
+                         .product(name: "FoundationExtension", package: "FoundationExtension"),
+                         .product(name: "Logging", package: "swift-log"),
+                         .product(name: "ShellKit", package: "FoundationExtension"),
+                     ]),
         .testTarget(name: "DependencyCollectorTests",
                      dependencies: [
                          "DependencyCollector",

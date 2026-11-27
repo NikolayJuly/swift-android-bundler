@@ -25,4 +25,24 @@ struct PackageDumpParserTests {
         let products = try PackageDumpParser.parseLibraryProductNames(from: json)
         #expect(products == ["AutoLib", "DynamicLib", "StaticLib"])
     }
+
+    /// Only targets of type `test` come back, sorted; regular, executable and plugin targets are left out.
+    @Test
+    func parseTestTargets() throws {
+        let json = """
+        {
+          "name": "package",
+          "products": [],
+          "targets": [
+            { "name": "Lib", "type": "regular" },
+            { "name": "ZTests", "type": "test" },
+            { "name": "Tool", "type": "executable" },
+            { "name": "ATests", "type": "test" },
+            { "name": "Plugin", "type": "plugin" }
+          ]
+        }
+        """
+        let targets = try PackageDumpParser.parseTestTargetNames(from: json)
+        #expect(targets == ["ATests", "ZTests"])
+    }
 }

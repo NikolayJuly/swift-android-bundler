@@ -8,6 +8,8 @@ CLI toolkit for building Swift packages for Android and collecting .so dependenc
 |---|---|
 | `build` | Builds Swift packages for Android, analyzes .so dependencies, strips unused ones, copies minimal set to destination |
 | `collect` | Collects .so dependencies for a pre-built Swift Android binary — useful for copying test binaries onto an Android emulator |
+| `test collect` | Collects every test runner of a package built with `swift build --build-tests`, with the .so files they load, into one folder |
+| `test run` | Pushes a `test collect` folder to the device over adb and runs every runner with the given testing libraries |
 
 ## Prerequisites
 

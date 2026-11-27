@@ -190,6 +190,55 @@ swift-android-bundler collect /path/to/binary.xctest \
 | `--build-folder` | parent dir of binary | Additional folder to search for built .so files |
 | `--verbose` / `-v` | false | Enable debug logging |
 
+## swift-android-bundler test collect
+
+Swift 6.4 builds tests with swiftbuild: every test target becomes its own `<Target>-test-runner` executable plus
+`<Target>.so`, and no runner loads another target's tests. `test collect` finds the package's test targets with
+`swift package dump-package`, the build folder with `swift build --show-bin-path`, and collects each runner like
+`collect` does, all into one folder. The package's tests must be built already (`swift build --build-tests`).
+
+```bash
+swift-android-bundler test collect \
+  --package-path ToolKit/NetworkKit \
+  --scratch-path .build-android \
+  --destination ~/.network-all-bins \
+  --test-target NetworkKitAndroidTests \
+  --triplet x86_64-unknown-linux-android29
+```
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--package-path` | — (required) | The package whose tests were built |
+| `--destination` | — (required) | Output folder; its parent must exist |
+| `--scratch-path` | the package's `.build` | The `--scratch-path` the tests were built with |
+| `--test-target` | every test target | Test target to collect (can be repeated). A target without a runner fails the command. |
+| `--arch`, `--api-level`, `--triplet`, `--swift-version` | as in `collect` | SDK discovery |
+| `--android-sdk-path` | `$ANDROID_HOME`, else `~/Library/Android/sdk` | Gives the NDK to `swift build` when `ANDROID_NDK_HOME` is not set |
+| `--verbose` / `-v` | false | Enable debug logging |
+
+## swift-android-bundler test run
+
+Pushes a `test collect` folder to `/data/local/tmp/tests` over adb and runs every runner there, once per
+`--testing-library`, with `LD_LIBRARY_PATH` set to that folder. Arguments after `--` go to every runner.
+
+A runner that exits with 69 has no tests for that library (Swift Testing's EX_UNAVAILABLE, e.g. a target whose
+code is Darwin-only); it is skipped. When no runner has tests for a library, the command fails.
+
+```bash
+swift-android-bundler test run ~/.network-all-bins \
+  --testing-library swift-testing \
+  --env ANDROID_ROOT=/system \
+  --env BOOTCLASSPATH="$(adb shell printenv BOOTCLASSPATH)" \
+  --env LD_LIBRARY_PATH=/apex/com.android.runtime/lib64 \
+  -- --no-parallel --filter 'InputStreamCompatible|ApiClientAndroidIntegration'
+```
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `<folder>` | — (required) | Folder made by `test collect` |
+| `--testing-library` | — (required) | `xctest` or `swift-testing` (can be repeated) |
+| `--env` | — | `NAME=value` for every runner (can be repeated). A given `LD_LIBRARY_PATH` goes after the device folder. |
+
 ## Protected libraries
 
 Some .so files are needed at runtime but have no direct symbol references from Swift code. These are protected and will never be stripped:

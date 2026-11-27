@@ -18,6 +18,17 @@ public final class PackageDumpParser {
             .sorted()
     }
 
+    /// Extracts test target names from `swift package dump-package` JSON output, sorted.
+    public static func parseTestTargetNames(from jsonString: String) throws -> [String] {
+        let data = Data(jsonString.utf8)
+        let dump = try JSONDecoder().decode(PackageTargetsDump.self, from: data)
+
+        return dump.targets
+            .filter { $0.type == "test" }
+            .map(\.name)
+            .sorted()
+    }
+
     // MARK: - Private
 
     private init() {}
@@ -50,6 +61,15 @@ private struct PackageDump: Decodable {
             // executable can be null or missing — we just check if library is present
             executable = nil
         }
+    }
+}
+
+private struct PackageTargetsDump: Decodable {
+    let targets: [Target]
+
+    struct Target: Decodable {
+        let name: String
+        let type: String
     }
 }
 
